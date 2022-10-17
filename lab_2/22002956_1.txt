@@ -1,0 +1,318 @@
+//Implementation of half_adder
+module half_adder(input a, b, output s, c);
+    
+    assign s = a ^ b;
+    assign c = a & b;
+
+endmodule
+
+module half_adder_testbench();
+    logic a, b, s, c;
+    half_adder ha(a,b,s,c);
+    initial begin
+        assign a = 0;
+        assign b = 0;
+        #100;
+        
+        assign b= 1; #100;
+        
+        assign a = 1;
+        assign b = 0; #100;
+        
+        assign b = 1; #100;
+        
+    end
+endmodule
+
+//Implementation of half_subtractor
+module half_subtractor(input a, b, output d, bout);
+
+    assign d = a ^ b;
+    assign bout = (~a) & b;
+
+endmodule
+
+module half_subtractor_tb();
+    logic a, b, d, bout;
+    half_subtractor hs(a,b,d,bout);
+    initial begin
+        assign a = 0;
+        assign b = 0;
+        #100;
+        
+        assign b= 1; #100;
+        
+        assign a = 1;
+        assign b = 0; #100;
+        
+        assign b = 1; #100;
+        
+    end
+endmodule
+
+//Implementation of full_adder
+module full_adder(input a, b, cin, output s, cout);
+
+    logic s_1, cout_1, s_2, cout_2;
+    
+    half_adder ha_1(a, b, s_1, cout_1);
+    half_adder ha_2(cin, s_1, s_2, cout_2);
+    
+    assign s = s_2;
+    or o( cout, cout_1, cout_2);
+
+endmodule
+
+module full_adder_tb();
+
+    logic a, b, cin, s, cout;
+    full_adder fa(a, b, cin, s, cout);
+    
+    initial begin
+        assign a = 0;
+        assign b = 0;
+        assign cin = 0; #100;
+        
+        assign cin = 1; #100;
+        
+        assign b = 1;
+        assign cin = 0; #100;
+        
+        assign cin = 1; #100;
+        
+        assign a = 1;
+        assign b = 0; 
+        assign cin = 0; #100
+        
+        assign cin = 1; #100;
+        
+        assign b = 1;
+        assign cin = 0; #100;
+        
+        assign cin = 1; #100;
+    
+    end
+endmodule
+
+//Implementation of two_bit_adder
+module two_bit_adder(input logic [1:0]a,
+                    input logic [1:0]b,
+                    input logic cin,
+                    output logic [1:0]s, 
+                    output logic cout);
+                
+    logic sum_1, sum_2, carry_1, carry_2;
+    
+    full_adder fa_1(a[0], b[0], cin, sum_1, carry_1);
+    full_adder fa_2(a[1], b[1], carry_1, sum_2, carry_2);
+    
+    assign s[0] = sum_1;
+    assign s[1] = sum_2;
+    assign cout = carry_2;
+
+endmodule
+
+module two_bit_adder_tb();
+
+    reg [1:0]a;
+    reg [1:0]b; 
+    logic cin;
+    reg [1:0]s;
+    logic cout;
+    
+    two_bit_adder two_add(a, b, cin, s, cout);
+    
+    initial begin
+        
+        assign a = 2'b00;
+        assign b = 2'b00;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b01;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b10;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b11;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        //
+        
+        assign a = 2'b01;
+        assign b = 2'b00;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b01;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b10;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b11;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        //
+        
+        assign a = 2'b10;
+        assign b = 2'b00;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b01;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b10;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b11;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        //
+        
+        assign a = 2'b11;
+        assign b = 2'b00;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b01;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b10;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+        
+        assign b = 2'b11;
+        assign cin = 0; #20;
+        
+        assign cin = 1; #20;
+    end
+
+endmodule
+
+//Implementation of lab calculator
+module lab_calculator(input logic a,
+                        input logic b,
+                        input logic c,
+                        input logic d,
+                        output logic y,
+                        output logic z);
+                        
+    logic out_1, out_2, out_3, out_4;
+    logic carry_1, bout_1;
+    
+    xor in_1(out_1, a, b);
+    nand in_2(out_2, a, b);
+    half_adder in_3(a, b, out_3, carry_1);
+    half_subtractor in_4(a, b, out_4, bout_1);
+    
+    mux4 mux_1(out_4, out_3, out_2, out_1, c, d, y);
+    mux2 mux_2(bout_1, carry_1, d, z);
+    
+endmodule
+
+module mux4 (i3, i2, i1, i0, s1, s0, z);
+    input i3, i2, i1, i0, s1, s0;
+    output z;
+    wire d1, d0;
+    mux2 m1(i3, i2, s0, d1); // instance1
+    mux2 m2(i1, i0, s0, d0); // instance2
+    mux2 m3(d1, d0, s1, z); // instance3
+endmodule
+
+module mux2 (i1, i0, s, d);
+
+    input i1, i0, s;
+    output d;
+    assign d = ~s&i0 | s&i1;
+    
+endmodule
+
+module lab_calculator_tb();
+
+    logic a, b, c, d, y, z;
+    
+    lab_calculator lb(a, b, c, d, y, z);
+    
+    initial begin
+        
+        assign a = 0;
+        assign b = 0;
+        assign c = 0;
+        assign d = 0; #20
+        
+        assign d = 1; #20;
+        
+        assign c = 1;
+        assign d = 0; #20;
+        
+        assign d = 1; #20;
+        
+        //
+        assign a = 0;
+        assign b = 1;
+        assign c = 0;
+        assign d = 0; #20
+        
+        assign d = 1; #20;
+        
+        assign c = 1;
+        assign d = 0; #20;
+        
+        assign d = 1; #20;
+        
+        //
+        assign a = 1;
+        assign b = 0;
+        assign c = 0;
+        assign d = 0; #20
+        
+        assign d = 1; #20;
+        
+        assign c = 1;
+        assign d = 0; #20;
+        
+        assign d = 1; #20;
+        
+        //
+        assign a = 1;
+        assign b = 1;
+        assign c = 0;
+        assign d = 0; #20
+        
+        assign d = 1; #20;
+        
+        assign c = 1;
+        assign d = 0; #20;
+        
+        assign d = 1; #20;
+    end
+    
+endmodule
