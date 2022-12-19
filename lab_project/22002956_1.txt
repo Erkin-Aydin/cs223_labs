@@ -1,0 +1,733 @@
+//Modules Start Here//////////////////////////////////////////////////////////////////////////////////
+
+module processor(   input logic clk, left_btn, mid_btn, right_btn, up_btn, low_btn,
+                    input logic[15:0] sw,
+                    output logic[6:0] segments,
+                    output logic dp,
+                    output logic[3:0] disp);
+
+    logic[11:0] ins;
+    logic load, store, RF_we, M_we, M_re, ALU_sel;
+    logic left_btn_debounced, mid_btn_debounced, right_btn_debounced, up_btn_debounced, low_btn_debounced;
+    logic[6:0] seg1, seg2, seg3;
+    logic[3:0] seg_data;
+    logic[3:0] di;
+    logic clk_slow;
+    controller controller( clk, ins[11:9], load, store, RF_we, M_we, M_re, ALU_sel);
+    
+    debouncer d1(clk, left_btn, left_btn_debounced);
+    debouncer d2(clk, right_btn, right_btn_debounced);
+    debouncer d3(clk, mid_btn, mid_btn_debounced);
+    debouncer d4(clk, up_btn, up_btn_debounced);
+    debouncer d5(clk, low_btn, low_btn_debounced);
+    
+    datapath datapath(  clk, left_btn_debounced, low_btn_debounced, 
+                        mid_btn_debounced, low_btn_debounced,
+                        right_btn_debounced, load, store, sw,
+                        up_btn_debounced,
+                        low_btn_debounced, RF_we,
+                        ALU_sel,
+                        low_btn_debounced, M_we, M_re,
+                        ins,
+                        seg1, seg2, seg3);
+                        
+    sevenseg sevenseg(seg_data, di, dp, segments, disp);
+    Clock_divider cdiv(clk, clk_slow);
+    always @(posedge clk_slow) begin 
+        if(di == 4'b0000) begin
+            di = 4'b0001;
+        end
+        if(di == 4'b0001) begin
+            di = 4'b0100;
+            seg_data = seg2;
+        end
+        else if(di == 4'b0100) begin
+            di = 4'b1000;
+            seg_data = seg1;
+        end
+        else if(di == 4'b1000) begin
+            di = 4'b0001;
+            seg_data = seg3;
+        end
+    end 
+endmodule
+
+//Taken/modified from https://www.fpga4student.com/2017/08/verilog-code-for-clock-divider-on-fpga.html
+module Clock_divider(clock_in,clock_out
+    );
+    input clock_in; // input clock on FPGA
+    output reg clock_out; // output clock after dividing the input clock by divisor
+    reg[27:0] counter=28'd0;
+    parameter DIVISOR = 28'd1_000;
+    always @(posedge clock_in)
+    begin
+     counter <= counter + 28'd1;
+     if(counter>=(DIVISOR-1))
+      counter <= 28'd0;
+    
+     clock_out <= (counter<DIVISOR/2)?1'b1:1'b0;
+    
+    end
+endmodule
+
+module controller(  input logic clk ,input logic[2:0] ins,
+                    output logic load, store, RF_we, M_we, M_re, ALU_sel);
+    reg[5:0] controls;
+    assign { load, store, RF_we, M_we, M_re, ALU_sel} = controls;
+    initial begin
+        controls <= 6'b000000;
+    end
+    always_comb
+        case(ins)
+            3'b000: controls <= 6'b101010;
+            3'b001: controls <= 6'b010100;
+            3'b010: controls <= 6'b001000;
+            3'b011: controls <= 6'b001001;
+            3'b100: controls <= 6'b001000;
+            3'b101: controls <= 6'b001000;
+            3'b110: controls <= 6'b000000;
+            default: controls <= 6'b000000;
+        endcase
+    
+endmodule
+
+//Taken/modified from https://www.fpga4fun.com/Debouncer2.html
+module debouncer(
+    input clk,
+    input PB,  // "PB" is the glitchy, asynchronous to clk, active low push-button signal
+
+    // from which we make three outputs, all synchronous to the clock
+    output PB_up   // 1 for one clock cycle when the push-button goes up (i.e. just released)
+);
+    reg PB_state;
+    // First use two flip-flops to synchronize the PB signal the "clk" clock domain
+    reg PB_sync_0;  
+    always @(posedge clk) PB_sync_0 <= ~PB;  // invert PB to make PB_sync_0 active high
+    reg PB_sync_1;  
+    always @(posedge clk) PB_sync_1 <= PB_sync_0;
+    
+    
+    initial begin
+        PB_state <= 1'b0;
+        PB_sync_0 <= 1'b0;
+        PB_sync_1 <= 1'b0;
+    end
+    
+    // Next declare a 16-bits counter
+    reg [15:0] PB_cnt = 16'b0000_0000_0000_0000;
+    
+    // When the push-button is pushed or released, we increment the counter
+    // The counter has to be maxed out before we decide that the push-button state has changed
+    
+    wire PB_idle = (PB_state==PB_sync_1);
+    wire PB_cnt_max = &PB_cnt;	// true when all bits of PB_cnt are 1's
+    
+    always @(posedge clk)
+        if(PB_idle) begin
+            PB_cnt <= 0;  // nothing's going on
+        end
+        else begin
+            PB_cnt <= PB_cnt + 16'd1;  // something's going on, increment the counter
+            if(PB_cnt_max) PB_state <= ~PB_state;  // if the counter is maxed out, PB changed!
+        end
+        
+        assign PB_up = ~PB_idle & PB_cnt_max & PB_state; 
+    
+endmodule
+
+module datapath(input logic clk,
+                input logic pc_we, pc_clr,
+                input logic IM_we, IM_clr,
+                input logic isexternal, load, store, input logic[15:0] out_instruction,
+                input logic up_btn_debounced,
+                input logic RF_clr, RF_we,
+                input logic ALU_sel,
+                input logic M_clr, M_we, M_re,
+                output logic[11:0] ins,
+                output logic[6:0] seg1, seg2, seg3);
+    
+    logic[2:0] pc, pc_next;
+    logic[11:0] IM_rd;
+    logic[2:0] RF_addr2, RF_wa1, RF_wa;
+    logic[3:0] RF_wd1, RF_wd, RF_d1, RF_d2, RF_disp1, RF_disp2, ALU_disp;
+    
+    logic[3:0] ALU_result;
+    logic[3:0] M_add, M_rd;
+    logic RF_we_real;
+    DFF PC(pc_next, clk, pc_we, pc_clr, pc);
+    imem instructions(clk, IM_we, IM_clr, pc, out_instruction[11:0], IM_rd);
+    
+    mux2_11_0 instruction_selection(clk, out_instruction[11:0], IM_rd, isexternal, ins);
+    mux2_2_0 reg_file_addr2(clk, ins[6:4], ins[5:3], store, RF_addr2);
+    
+    mux2_2_0 reg_file_waddr1(clk, ins[6:4], ins[8:6], load, RF_wa1);
+    mux2_2_0 reg_file_waddr(clk, out_instruction[11:9], RF_wa1, up_btn_debounced, RF_wa);
+    
+    mux2_3_0 reg_file_wdata1(clk, M_rd, ALU_result, load, RF_wd1);
+    mux2_3_0 reg_file_wdata(clk, out_instruction[15:12], RF_wd1, up_btn_debounced, RF_wd);
+    
+    or o(RF_we_real, RF_we, up_btn_debounced);
+    
+    reg_file register_file(clk, RF_clr, ins[2:0], RF_addr2, RF_wa, RF_wd, RF_we_real, RF_d1, RF_d2);
+    alu alu(RF_d1, RF_d2, ALU_sel, ALU_result);
+    
+    DFF3 d1(RF_d1, clk, pc_we, pc_clr, RF_disp1);
+    DFF3 d2(RF_d2, clk, pc_we, pc_clr, RF_disp2);
+    DFF3 d3(ALU_result, clk, pc_we, pc_clr, ALU_disp);
+    mux2_3_0 mem_add_selection(ins[3:0], out_instruction[3:0], (load | store), M_add);
+    
+    dmem dmem(clk, M_clr, M_add, RF_d2, M_we, M_re, M_rd);
+    initial begin
+        pc <= 3'b000;
+        seg1 <= 4'b0000;
+        seg2 <= 4'b0000;
+        seg3 <= 4'b0000;
+    end
+    always_comb begin
+        pc_next <= pc + 3'b001;
+        seg1 <= RF_disp1;
+        seg2 <= RF_disp2;
+        seg3 <= ALU_disp;
+    end
+endmodule
+
+module DFF( input logic[2:0]D,
+            input logic Clk,
+            input logic we, clr,
+            output logic[2:0] Q);
+    initial begin
+        Q <= 3'b000;
+    end
+    always @(posedge Clk)
+        if(~clr) begin
+            if(we) begin
+                Q<=D;
+            end
+            else begin
+                Q <= Q;
+            end
+        end
+        else begin
+            Q <= 3'b000;
+        end
+endmodule
+
+module DFF3( input logic[3:0]D,
+            input logic Clk,
+            input logic we, clr,
+            output logic[3:0] Q);
+    initial begin
+        Q <= 4'b000;
+    end
+    always @(posedge Clk)
+        if(~clr) begin
+            if(we) begin
+                Q<=D;
+            end
+            else begin
+                Q <= Q;
+            end
+        end
+        else begin
+            Q <= 4'b000;
+        end
+endmodule
+
+module mux2_11_0(   input logic clk,
+                    input logic[11:0] i1, i0, 
+                    input logic s, 
+                    output logic[11:0]d);
+    
+    always @(posedge clk) begin
+        if(~s) begin
+            d <= i0;
+        end
+        else begin 
+            d <= i1;
+        end
+    end
+endmodule
+
+module mux2_2_0(    input logic clk,
+                    input logic[2:0]i1, i0,
+                    input logic s, 
+                    output logic[2:0] d);
+    
+    always @(posedge clk) begin
+        if(~s) begin
+            d <= i0;
+        end
+        else begin 
+            d <= i1;
+        end
+    end
+endmodule
+
+module mux2_3_0(    input logic clk,
+                    input logic[3:0]i1, i0, 
+                    input logic s, 
+                    output logic[3:0] d);
+    
+    always @(posedge clk) begin
+        if(~s) begin
+            d <= i0;
+        end
+        else begin 
+            d <= i1;
+        end
+    end
+endmodule
+
+module imem(input logic clk, IM_we, clr,
+            input logic[2:0] addr,
+            input logic[11:0] IM_wd,
+            output logic[11:0] IM_rd);
+    
+    reg[11:0] instructions[7:0];
+    initial begin
+        instructions[0] = 12'b010_000_000_001; 
+        instructions[1] = 12'b010_000_000_010;   
+        instructions[2] = 12'b010_000_000_011; 
+        instructions[3] = 12'b010_000_000_011; 
+        instructions[4] = 12'b010_000_000_100; 
+        instructions[5] = 12'b010_000_000_101; 
+        instructions[6] = 12'b010_000_000_110; 
+        instructions[7] = 12'b010_000_000_100; 
+    end
+    always_ff@(posedge clk) begin
+        if(clr) begin
+            instructions[0] = 12'b000_000_000_000; 
+            instructions[1] = 12'b000_000_000_000;   
+            instructions[2] = 12'b000_000_000_000; 
+            instructions[3] = 12'b000_000_000_000; 
+            instructions[4] = 12'b000_000_000_000; 
+            instructions[5] = 12'b000_000_000_000; 
+            instructions[6] = 12'b000_000_000_000; 
+            instructions[7] = 12'b000_000_000_000; 
+        end
+        else if(IM_we) begin
+            instructions[addr[2:0]] = IM_wd[11:0];
+        end
+        IM_rd[11:0] <= instructions[addr[2:0]];
+    end
+endmodule
+
+
+module reg_file(input logic clk, clr,
+                input logic[2:0] RF_ad1, RF_ad2, RF_wa,
+                input logic[3:0] RF_wd,
+                input logic RF_we,
+                output logic[3:0] RF_d1, RF_d2);
+
+    reg[3:0] registers[7:0];
+    initial begin
+        registers[0] = 4'b0100;   
+        registers[1] = 4'b0001;
+        registers[2] = 4'b0010;
+        registers[3] = 4'b0011;
+        registers[4] = 4'b0100;
+        registers[5] = 4'b0101;
+        registers[6] = 4'b0110;
+        registers[7] = 4'b0111;
+    end
+    always_ff@(posedge clk) begin
+        if(clr) begin
+            registers[0] <= 4'b0000;
+            registers[1] <= 4'b0000;
+            registers[2] <= 4'b0000;
+            registers[3] <= 4'b0000;
+            registers[4] <= 4'b0000;
+            registers[5] <= 4'b0000;
+            registers[6] <= 4'b0000;
+            registers[7] <= 4'b0000;
+                             
+        end
+        else if (RF_we) begin
+            case(RF_wa)
+                3'b000: registers[0] <= RF_wd;
+                3'b001: registers[1] <= RF_wd;
+                3'b010: registers[2] <= RF_wd;
+                3'b011: registers[3] <= RF_wd;
+                3'b100: registers[4] <= RF_wd;
+                3'b101: registers[5] <= RF_wd;
+                3'b110: registers[6] <= RF_wd;
+                3'b111: registers[7] <= RF_wd;
+            endcase        
+        end
+        case(RF_ad1)
+            3'b000: RF_d1 = registers[0];
+            3'b001: RF_d1 = registers[1];
+            3'b010: RF_d1 = registers[2];
+            3'b011: RF_d1 = registers[3];
+            3'b100: RF_d1 = registers[4];
+            3'b101: RF_d1 = registers[5];
+            3'b110: RF_d1 = registers[6];
+            3'b111: RF_d1 = registers[7];
+        endcase
+        case(RF_ad2)
+            3'b000: RF_d2 = registers[0];
+            3'b001: RF_d2 = registers[1];
+            3'b010: RF_d2 = registers[2];
+            3'b011: RF_d2 = registers[3];
+            3'b100: RF_d2 = registers[4];
+            3'b101: RF_d2 = registers[5];
+            3'b110: RF_d2 = registers[6];
+            3'b111: RF_d2 = registers[7];
+        endcase
+    end
+endmodule
+
+module alu( input logic[3:0] RF_d1, RF_d2,
+            input logic ALU_sel,
+            output logic[3:0] ALU_result);
+            
+            always_comb
+                case(ALU_sel)
+                
+                    1'b1: ALU_result <= RF_d1 + RF_d2;
+                    1'b0: ALU_result <= RF_d1 - RF_d2; 
+            endcase
+endmodule
+
+module dmem(input logic clk, clr,
+            input logic[3:0] M_add,
+            input logic[3:0] M_wd,
+            input logic M_we, M_re,
+            output logic[3:0] M_rd);
+
+    reg[3:0] mem[15:0];
+    initial begin
+            mem[0] = 4'b0000;
+            mem[1] <= 4'b0000;
+            mem[2] <= 4'b0000;
+            mem[3] <= 4'b0000;
+            mem[4] <= 4'b0000;
+            mem[5] <= 4'b0000;
+            mem[6] <= 4'b0000;
+            mem[7] <= 4'b0000;
+            mem[8] <= 4'b0000;
+            mem[9] <= 4'b0000;
+            mem[10] <= 4'b0000;
+            mem[11] <= 4'b0000;
+            mem[12] <= 4'b0000;
+            mem[13] <= 4'b0000;
+            mem[14] <= 4'b0000;
+            mem[15] <= 4'b0000;
+    end
+    always_ff@(posedge clk) begin
+        if(clr) begin
+            mem[0] <= 4'b0000;
+            mem[1] <= 4'b0000;
+            mem[2] <= 4'b0000;
+            mem[3] <= 4'b0000;
+            mem[4] <= 4'b0000;
+            mem[5] <= 4'b0000;
+            mem[6] <= 4'b0000;
+            mem[7] <= 4'b0000;
+            mem[8] <= 4'b0000;
+            mem[9] <= 4'b0000;
+            mem[10] <= 4'b0000;
+            mem[11] <= 4'b0000;
+            mem[12] <= 4'b0000;
+            mem[13] <= 4'b0000;
+            mem[14] <= 4'b0000;
+            mem[15] <= 4'b0000;
+        end
+        else begin
+            if (M_we) begin
+                mem[M_add[3:0]] <= M_wd;	
+            end
+            if(M_re) begin
+                M_rd <= mem[M_add[3:0]];
+            end
+        end
+    end
+
+endmodule
+
+module sevenseg(input logic [3:0] data,
+input logic[3:0] di,
+output logic dp,
+output logic [6:0] segments,
+output logic[3:0] disp);
+    assign dp = 0;
+    assign disp = ~di;
+    always_comb
+        //always @ (*) can also be used
+        case (data)
+        //                  abc_defg
+        0: segments =    7'b000_0001;
+        1: segments =    7'b100_1111;
+        2: segments =    7'b001_0010;
+        3: segments =    7'b000_0110;
+        4: segments =    7'b100_1100;
+        5: segments =    7'b010_0100;
+        6: segments =    7'b010_0000;
+        7: segments =    7'b000_1111;
+        8: segments =    7'b000_0000;
+        9: segments =    7'b000_1100;
+        10:segments =    7'b000_1000;
+        11:segments =    7'b110_0000;
+        12:segments =    7'b011_0001;
+        13:segments =    7'b100_0010;
+        14:segments =    7'b011_0000;
+        15:segments =    7'b011_1000;
+        default:
+           segments =    7'b111_1111; // required
+    endcase
+endmodule
+
+//Testbenches start here//////////////////////////////////////////////////////////////////////////////
+
+module processor_tb();
+
+    logic clk, left_btn, mid_btn, right_btn, up_btn, low_btn;
+    logic[15:0] sw;
+    logic[6:0] segments;
+    logic dp;
+    logic[3:0] disp;
+    
+    always begin
+        clk <= 0; #5;    
+        clk <= 1; #5;
+    end
+    
+    processor pc(clk, left_btn, mid_btn, right_btn, up_btn, low_btn, sw, segments, dp, disp);
+    
+    initial begin
+        sw = 16'b0000_0110_0000_0000;
+        left_btn = 0;
+        mid_btn = 0;
+        right_btn = 0;
+        up_btn = 0;
+        low_btn = 1;#10;
+        low_btn = 0; #5;
+        sw = 16'b0011_0110_0000_0000;
+        up_btn = 1; #10;
+        up_btn = 0; #10;
+        sw = 16'b0001_1000_0000_0000;
+        up_btn = 1; #10;
+        up_btn = 0; #10;
+        sw = 16'b1111_001_000_100_011;
+        right_btn = 1; #10;
+        right_btn = 0; #10;
+    end
+endmodule
+
+module datapath_tb();
+
+    logic clk, pc_we, pc_clr;
+    logic IM_we, IM_clr;
+    logic isexternal, load, store;
+    logic[15:0] out_instruction;
+    logic up_btn_debounced;
+    logic RF_clr, RF_we;
+    logic ALU_sel;
+    logic M_clr, M_we, M_re;
+    logic[11:0] ins;
+    logic[6:0] seg1, seg2, seg3;
+    
+    datapath dp(clk, pc_we, pc_clr, 
+                IM_we, IM_clr,
+                isexternal, load, store,
+                out_instruction,
+                up_btn_debounced,
+                RF_clr, RF_we,
+                ALU_sel,
+                M_clr, M_we, M_re,
+                ins,
+                seg1, seg2, seg3);
+    
+    always begin
+        clk <= 0; #5;    
+        clk <= 1; #5;
+    end
+
+    initial begin
+    
+            pc_we = 0;
+            pc_clr = 0;
+            IM_we = 0;
+            IM_clr = 0;
+            isexternal = 0;
+            load = 0;
+            store = 0;
+            out_instruction = 16'b0000_0000_0000_0000;
+            up_btn_debounced = 0;
+            RF_clr = 0;
+            RF_we = 0;
+            ALU_sel = 0;
+            M_clr = 0;
+            M_we = 0;
+            M_re = 0; #10;
+            up_btn_debounced = 1;
+            RF_we = 1;
+            out_instruction = 16'b1111_1111_1111_1111; #10;    
+    end
+endmodule
+
+module dmem_tb();
+
+    logic clk, M_clr, M_we, M_re;
+    logic[3:0] M_add, M_wd, M_rd;
+
+    always begin
+        clk <= 0; #5;    
+        clk <= 1; #5;
+    end
+    dmem dmem(clk, M_clr, M_add, M_wd, M_we, M_re, M_rd);
+    initial begin
+        
+        M_clr = 0;
+        M_we = 0;
+        M_re = 0;
+        M_wd = 4'b0000; #10;
+        M_add = 4'b0001;
+        M_wd = 4'b1010; #5;
+        M_we = 1; #5;
+        M_we = 0; #5;
+        M_re = 1; #5;
+        M_re = 0;
+        M_clr = 1; #20; 
+        M_clr = 0; #10;
+        M_re = 1;
+
+    end
+endmodule
+
+module imem_tb();
+
+    logic clk, we, clr;
+    logic[2:0] addr;
+    logic[11:0] wd;
+    logic[3:0] out;
+    
+    imem mem(clk, we, clr, addr, wd, out);
+    always begin
+        clk <= 0; #5;    
+        clk <= 1; #5;
+    end
+    
+    initial begin
+        
+        addr = 3'b000;
+        wd = 11'b010_1010_1010;
+        we = 0; 
+        clr = 0; #5
+        
+        we = 1; #10;
+        we = 0; #10;
+        
+        addr = 3'b111;
+        we = 1; #5;
+        we = 0;
+        
+    end
+endmodule
+
+module reg_file_tb();
+
+    logic clk, RF_clr, RF_we;
+    logic[2:0] RF_ad1, RF_ad2, RF_wa;
+    logic[3:0] RF_wd, RF_d1, RF_d2;
+    always begin
+        clk <= 0; #5;    
+        clk <= 1; #5;
+    end
+    reg_file rf(clk, RF_clr, RF_ad1, RF_ad2, RF_wa, RF_wd, RF_we, RF_d1, RF_d2);
+
+    initial begin
+    
+        RF_clr = 0;
+        RF_we = 0;
+        RF_ad1 = 3'b000;
+        RF_ad2 = 3'b001;
+        RF_wa = 3'b001;
+        RF_wd = 4'b1010;#5;
+        RF_we = 1; #10;
+        RF_we = 0; #10;
+        RF_clr = 1; #10;
+        RF_clr = 0;
+    
+    
+    end
+endmodule
+
+//Constraints File Starts Here////////////////////////////////////////////////////////////////////////
+
+# Clock signal 
+set_property PACKAGE_PIN W5 [get_ports clk]  	 	 	 	  
+ 	set_property IOSTANDARD LVCMOS33 [get_ports clk] 
+# create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports clk]
+
+# Switches 
+set_property PACKAGE_PIN V17 [get_ports {sw[0]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[0]}] 
+set_property PACKAGE_PIN V16 [get_ports {sw[1]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[1]}] 
+set_property PACKAGE_PIN W16 [get_ports {sw[2]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[2]}] 
+set_property PACKAGE_PIN W17 [get_ports {sw[3]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[3]}] 
+set_property PACKAGE_PIN W15 [get_ports {sw[4]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[4]}] 
+set_property PACKAGE_PIN V15 [get_ports {sw[5]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[5]}] 
+set_property PACKAGE_PIN W14 [get_ports {sw[6]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[6]}] 
+set_property PACKAGE_PIN W13 [get_ports {sw[7]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[7]}] 
+set_property PACKAGE_PIN V2 [get_ports {sw[8]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[8]}] 
+set_property PACKAGE_PIN T3 [get_ports {sw[9]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[9]}] 
+set_property PACKAGE_PIN T2 [get_ports {sw[10]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[10]}] 
+set_property PACKAGE_PIN R3 [get_ports {sw[11]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[11]}] 
+set_property PACKAGE_PIN W2 [get_ports {sw[12]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[12]}] 
+set_property PACKAGE_PIN U1 [get_ports {sw[13]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[13]}] 
+set_property PACKAGE_PIN T1 [get_ports {sw[14]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[14]}] 
+set_property PACKAGE_PIN R2 [get_ports {sw[15]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {sw[15]}] 
+
+#Buttons
+set_property PACKAGE_PIN U18 [get_ports mid_btn]  	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports mid_btn] 
+set_property PACKAGE_PIN T18 [get_ports up_btn]  	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports up_btn] 
+set_property PACKAGE_PIN W19 [get_ports left_btn]  	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports left_btn] 
+set_property PACKAGE_PIN T17 [get_ports right_btn]  	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports right_btn] 
+set_property PACKAGE_PIN U17 [get_ports low_btn]  	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports low_btn] 
+ 	 
+#7 segment display 
+set_property PACKAGE_PIN W7 [get_ports {segments[6]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {segments[6]}] 
+set_property PACKAGE_PIN W6 [get_ports {segments[5]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {segments[5]}] 
+set_property PACKAGE_PIN U8 [get_ports {segments[4]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {segments[4]}] 
+set_property PACKAGE_PIN V8 [get_ports {segments[3]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {segments[3]}] 
+set_property PACKAGE_PIN U5 [get_ports {segments[2]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {segments[2]}] 
+set_property PACKAGE_PIN V5 [get_ports {segments[1]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {segments[1]}] 
+set_property PACKAGE_PIN U7 [get_ports {segments[0]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {segments[0]}] 
+set_property PACKAGE_PIN V7 [get_ports dp]  	 	 	 	  
+ 	set_property IOSTANDARD LVCMOS33 [get_ports dp] 
+set_property PACKAGE_PIN U2 [get_ports {disp[0]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {disp[0]}] 
+set_property PACKAGE_PIN U4 [get_ports {disp[1]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {disp[1]}] 
+set_property PACKAGE_PIN V4 [get_ports {disp[2]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {disp[2]}] 
+set_property PACKAGE_PIN W4 [get_ports {disp[3]}] 	 	 	 	 	 
+ 	set_property IOSTANDARD LVCMOS33 [get_ports {disp[3]}] 

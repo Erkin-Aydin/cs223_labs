@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="processor_tb_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="glbl" />
+            <top_module name="processor_tb" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="0.000 ns"></ZoomStartTime>
+      <ZoomEndTime time="583.334 ns"></ZoomEndTime>
+      <Cursor1Time time="49.708 ns"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="135"></NameColumnWidth>
+      <ValueColumnWidth column_width="66"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="34" />
+   <wvobject type="logic" fp_name="/processor_tb/clk">
+      <obj_property name="ElementShortName">clk</obj_property>
+      <obj_property name="ObjectShortName">clk</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/left_btn">
+      <obj_property name="ElementShortName">left_btn</obj_property>
+      <obj_property name="ObjectShortName">left_btn</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/mid_btn">
+      <obj_property name="ElementShortName">mid_btn</obj_property>
+      <obj_property name="ObjectShortName">mid_btn</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/right_btn">
+      <obj_property name="ElementShortName">right_btn</obj_property>
+      <obj_property name="ObjectShortName">right_btn</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/up_btn">
+      <obj_property name="ElementShortName">up_btn</obj_property>
+      <obj_property name="ObjectShortName">up_btn</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/low_btn">
+      <obj_property name="ElementShortName">low_btn</obj_property>
+      <obj_property name="ObjectShortName">low_btn</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/sw">
+      <obj_property name="ElementShortName">sw[15:0]</obj_property>
+      <obj_property name="ObjectShortName">sw[15:0]</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/segments">
+      <obj_property name="ElementShortName">segments[6:0]</obj_property>
+      <obj_property name="ObjectShortName">segments[6:0]</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/dp">
+      <obj_property name="ElementShortName">dp</obj_property>
+      <obj_property name="ObjectShortName">dp</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/disp">
+      <obj_property name="ElementShortName">disp[3:0]</obj_property>
+      <obj_property name="ObjectShortName">disp[3:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/datapath/instructions/instructions">
+      <obj_property name="ElementShortName">instructions[7:0][11:0]</obj_property>
+      <obj_property name="ObjectShortName">instructions[7:0][11:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/datapath/register_file/registers">
+      <obj_property name="ElementShortName">registers[7:0][3:0]</obj_property>
+      <obj_property name="ObjectShortName">registers[7:0][3:0]</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/datapath/dmem/mem">
+      <obj_property name="ElementShortName">mem[15:0][3:0]</obj_property>
+      <obj_property name="ObjectShortName">mem[15:0][3:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/controller/ins">
+      <obj_property name="ElementShortName">ins[2:0]</obj_property>
+      <obj_property name="ObjectShortName">ins[2:0]</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/controller/load">
+      <obj_property name="ElementShortName">load</obj_property>
+      <obj_property name="ObjectShortName">load</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/controller/store">
+      <obj_property name="ElementShortName">store</obj_property>
+      <obj_property name="ObjectShortName">store</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/controller/RF_we">
+      <obj_property name="ElementShortName">RF_we</obj_property>
+      <obj_property name="ObjectShortName">RF_we</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/controller/M_we">
+      <obj_property name="ElementShortName">M_we</obj_property>
+      <obj_property name="ObjectShortName">M_we</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/controller/M_re">
+      <obj_property name="ElementShortName">M_re</obj_property>
+      <obj_property name="ObjectShortName">M_re</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/controller/ALU_sel">
+      <obj_property name="ElementShortName">ALU_sel</obj_property>
+      <obj_property name="ObjectShortName">ALU_sel</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/datapath/instruction_selection/i1">
+      <obj_property name="ElementShortName">i1[11:0]</obj_property>
+      <obj_property name="ObjectShortName">i1[11:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/datapath/instruction_selection/i0">
+      <obj_property name="ElementShortName">i0[11:0]</obj_property>
+      <obj_property name="ObjectShortName">i0[11:0]</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/datapath/instruction_selection/s">
+      <obj_property name="ElementShortName">s</obj_property>
+      <obj_property name="ObjectShortName">s</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/datapath/instruction_selection/d">
+      <obj_property name="ElementShortName">d[11:0]</obj_property>
+      <obj_property name="ObjectShortName">d[11:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/datapath/PC/D">
+      <obj_property name="ElementShortName">D[2:0]</obj_property>
+      <obj_property name="ObjectShortName">D[2:0]</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/datapath/PC/Clk">
+      <obj_property name="ElementShortName">Clk</obj_property>
+      <obj_property name="ObjectShortName">Clk</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/datapath/PC/we">
+      <obj_property name="ElementShortName">we</obj_property>
+      <obj_property name="ObjectShortName">we</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/datapath/PC/clr">
+      <obj_property name="ElementShortName">clr</obj_property>
+      <obj_property name="ObjectShortName">clr</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/datapath/PC/Q">
+      <obj_property name="ElementShortName">Q[2:0]</obj_property>
+      <obj_property name="ObjectShortName">Q[2:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/datapath/register_file/RF_wd">
+      <obj_property name="ElementShortName">RF_wd[3:0]</obj_property>
+      <obj_property name="ObjectShortName">RF_wd[3:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/datapath/instruction_selection/d">
+      <obj_property name="ElementShortName">d[11:0]</obj_property>
+      <obj_property name="ObjectShortName">d[11:0]</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/datapath/isexternal">
+      <obj_property name="ElementShortName">isexternal</obj_property>
+      <obj_property name="ObjectShortName">isexternal</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/processor_tb/pc/datapath/load">
+      <obj_property name="ElementShortName">load</obj_property>
+      <obj_property name="ObjectShortName">load</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/processor_tb/pc/controller/ins">
+      <obj_property name="ElementShortName">ins[2:0]</obj_property>
+      <obj_property name="ObjectShortName">ins[2:0]</obj_property>
+   </wvobject>
+</wave_config>
