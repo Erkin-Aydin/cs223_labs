@@ -1,0 +1,12 @@
+
+{ 
+    crc :  5439183584984491384  , 
+    ccp_crc :  0  , 
+    cmdline : " --incr --debug typical --relax --mt 8 -L xil_defaultlib -L uvm -L unisims_ver -L unimacro_ver -L secureip --snapshot shift_reg_tb_behav xil_defaultlib.shift_reg_tb xil_defaultlib.glbl" , 
+    buildDate : "Apr 18 2022" , 
+    buildTime : "15:53:03" , 
+    linkCmd : "/usr/bin/gcc -Wa,-W  -O -fPIC  -m64  -Wl,--no-as-needed  -Wl,--unresolved-symbols=ignore-all  -o \"xsim.dir/shift_reg_tb_behav/xsimk\"   \"xsim.dir/shift_reg_tb_behav/obj/xsim_0.lnx64.o\" \"xsim.dir/shift_reg_tb_behav/obj/xsim_1.lnx64.o\" -L\"/home/saturnine/Vivado/Vivado/2022.1/lib/lnx64.o\" -lrdi_simulator_kernel   -lrdi_simbridge_kernel" , 
+    aggregate_nets : 
+    [ 
+    ] 
+} 
